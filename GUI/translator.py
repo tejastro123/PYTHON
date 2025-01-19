@@ -1,7 +1,7 @@
 from tkinter import *
 from tkinter import ttk, messagebox
-import googletrans
-import textblob
+import asyncio
+from googletrans import LANGUAGES, Translator
 
 # Initialize the main application window
 root = Tk()
@@ -9,47 +9,64 @@ root.title("Google Translate")
 root.geometry("1080x400")
 root.configure(bg="white")
 
+translator = Translator()  # Create a translator instance
+
 
 def label_change():
+    """Updates the labels dynamically based on combobox selections."""
     label1.config(text=combo1.get())
     label2.config(text=combo2.get())
     root.after(1000, label_change)
 
 
+import asyncio
+from googletrans import Translator
+
+
 def translate_now():
-    global language
+    """Performs text translation using asynchronous calls."""
     try:
-        text_=text1.get(1.0,END)
-        c2=combo1.get()
-        c3=combo2.get()
-        if(text_):
-            words = textblob.TextBlob(text_)
-            lan = words.detect_language()
-            for i,j in language.items():
-                if(j == c3):
-                    lan_ = i
-            words = words.translate(from_lang=lan,to=str(lan_))
-            text2.delete(1.0,END)
-            text2.insert(END, words)
+        text_ = text1.get(1.0, END).strip()  # Get input text
+        from_lang = combo1.get()  # Source language
+        to_lang = combo2.get()  # Target language
+
+        if not text_:
+            messagebox.showwarning("Input Error", "Please enter text to translate.")
+            return
+
+        if to_lang == "SELECT LANGUAGE":
+            messagebox.showwarning("Language Error", "Please select a target language.")
+            return
+
+        # Run the asynchronous translation
+        loop = asyncio.get_event_loop()
+        translated_text = loop.run_until_complete(async_translate(text_, from_lang, to_lang))
+
+        text2.delete(1.0, END)
+        text2.insert(END, translated_text)
 
     except Exception as e:
         messagebox.showerror("Translation Error", f"An error occurred: {str(e)}")
 
 
-# Load assets (update the paths to match your setup)
-try:
-    image_icon = PhotoImage(file="GUI/googletrans.png")
-    root.iconphoto(False, image_icon)
+async def async_translate(text, from_lang, to_lang):
+    """Asynchronous translation function."""
+    translator = Translator()
 
-    arrow_image = PhotoImage(file="GUI/arrow.png")
-    image_label = Label(root, image=arrow_image, width=150, bg="white")
-    image_label.place(x=460, y=50)
-except Exception:
-    messagebox.showwarning("Image Error", "Failed to load images. Check file paths.")
+    # Get language codes
+    from_lang_code = next((code for code, lang in language.items() if lang.lower() == from_lang.lower()), None)
+    to_lang_code = next((code for code, lang in language.items() if lang.lower() == to_lang.lower()), None)
+
+    if not from_lang_code or not to_lang_code:
+        raise ValueError("Selected languages are not supported.")
+
+    # Translate text asynchronously
+    result = await translator.translate(text, src=from_lang_code, dest=to_lang_code)
+    return result.text
 
 
 # Language data
-language = googletrans.LANGUAGES
+language = LANGUAGES
 languageV = list(language.values())
 
 # Source language combobox
